@@ -3,7 +3,6 @@ import config from "../../config.json";
 
 interface TgJsonResponse<T = any> {
   ok: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result: T;
 }
 type ApiResponse<T> = Promise<TgJsonResponse<T>>;
@@ -36,7 +35,19 @@ const api = {
       text,
       chat_id: chatId || config.bot.chatId,
       parse_mode: "MarkdownV2",
-      reply_markup: { remove_keyboard: true },
+      ...options,
+    }),
+  editMessage: (
+    text: string,
+    messageId: string | number,
+    chatId?: string | number,
+    options: object = {}
+  ) =>
+    fetcher("POST", "editMessageText", {
+      text,
+      chat_id: chatId || config.bot.chatId,
+      message_id: messageId,
+      parse_mode: "MarkdownV2",
       ...options,
     }),
   getFile: (fileId: string) => fetcher("POST", "getFile", { file_id: fileId }),

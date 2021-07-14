@@ -23,6 +23,7 @@
     "@sendgrid/mail": "^7.4.5",
     "body-parser": "^1.19.0",
     "dotenv": "^10.0.0",
+    "form-data": "^4.0.0",
     "multiparty": "^4.2.2",
     "node-fetch": "^2.6.1",
     "polka": "^0.5.2",
