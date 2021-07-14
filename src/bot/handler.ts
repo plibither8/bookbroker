@@ -1,9 +1,10 @@
 import fetch from "node-fetch";
 import {
   createWriteStream,
-  createReadStream,
   readFileSync,
   unlinkSync,
+  existsSync,
+  mkdirSync,
 } from "fs";
 import path from "path";
 import api from "./api";
@@ -11,9 +12,16 @@ import { extensionMimeTypes } from "./utils";
 import config from "../../config.json";
 import sgMail from "@sendgrid/mail";
 import messages from "./messages";
-import FormData from "form-data";
+import { spawnSync } from "child_process";
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+const getTempPath = (fileName: string = ""): string =>
+  path.join(__dirname, "../../", "temp", fileName);
+
+if (!existsSync(getTempPath())) {
+  mkdirSync(getTempPath());
+}
 
 interface State {
   messageId: undefined | number;
@@ -57,11 +65,7 @@ async function downloadFile(
   fileName: string,
   extension: string
 ): Promise<string> {
-  const targetPath = path.join(
-    __dirname,
-    "../../temp/",
-    `${fileName}.${extension}`
-  );
+  const targetPath = path.join(`${fileName}.${extension}`);
   const response = await fetch(fileUrl);
   const fileStream = createWriteStream(targetPath);
   await new Promise((resolve, reject) => {
@@ -77,31 +81,6 @@ async function getFilePath(fileId: string): Promise<string> {
     result: { file_path: localFilePath },
   }: { result: Record<string, string> } = await api.getFile(fileId);
   return `https://api.telegram.org/file/bot${config.bot.token}/${localFilePath}`;
-}
-
-async function convertToMobi(
-  filePath: string,
-  fileName: string
-): Promise<string> {
-  const form = new FormData();
-  form.append("file", createReadStream(filePath));
-  form.append("data", JSON.stringify({ convert_to: "kindle" }));
-  const response = await fetch("https://epub.to/v1/api", {
-    method: "POST",
-    body: form,
-    headers: {
-      Authorization: process.env.EPUB_TO_API_KEY,
-      ...form.getHeaders(),
-    },
-  });
-  const targetPath = path.join(__dirname, "../../temp/", `${fileName}.mobi`);
-  const fileStream = createWriteStream(targetPath);
-  await new Promise((resolve, reject) => {
-    response.body.pipe(fileStream);
-    response.body.on("error", reject);
-    fileStream.on("finish", resolve);
-  });
-  return targetPath;
 }
 
 async function updateMessage(
@@ -141,10 +120,11 @@ export default async function handler(document: any) {
   await updateMessage(messages.documentDownloaded, state);
   if (extensionMimeTypes[mimeType] === "epub") {
     await updateMessage(messages.mobiConversionStarted, state);
-    const newDownloadedFilePath = await convertToMobi(
+    const newDownloadedFilePath = getTempPath(`${fileUniqueId}.mobi`);
+    spawnSync("/usr/bin/ebook-convert", [
       downloadedFilePath,
-      fileUniqueId
-    );
+      newDownloadedFilePath,
+    ]);
     unlinkSync(downloadedFilePath);
     await updateMessage(messages.mobiConversionDone, state);
     downloadedFilePath = newDownloadedFilePath;
