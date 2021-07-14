@@ -3,7 +3,6 @@ import polka from "polka";
 import telegram from "./bot";
 import config from "../config.json";
 import { json } from "body-parser";
-import { mailQueue } from "./bot/handler";
 
 polka()
   .use(json())
@@ -11,5 +10,3 @@ polka()
   .listen(process.env.PORT, () =>
     console.log("Server listening on port", process.env.PORT)
   );
-
-mailQueue();

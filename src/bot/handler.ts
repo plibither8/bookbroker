@@ -18,47 +18,27 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 interface State {
   messageId: undefined | number;
   messages: string[];
-  queue: QueueItem[];
-  queued: boolean;
 }
 
-interface QueueItem {
-  time: number;
-  fileName: string;
-  filePath: string;
-  mimeType: string;
-}
-
-const state: State = {
-  messageId: undefined,
-  messages: [],
-  queue: [],
-  queued: false,
-};
-
-function clearState() {
-  state.messageId = undefined;
-  state.messages = [];
-  state.queue = [];
-  state.queued = false;
-}
-
-function getContent(document: QueueItem): string {
-  return readFileSync(document.filePath).toString("base64");
-}
-
-async function emailDocuments(documents: QueueItem[]) {
+async function emailDocument(
+  fileName: string,
+  filePath: string,
+  mimeType: string
+) {
+  const fileNameWithExt = `${fileName}.${extensionMimeTypes[mimeType]}`;
   const message = {
     to: config.kindleEmail,
     from: config.senderEmail,
-    subject: "Documents",
-    text: `${documents.length} documents have been attached!`,
-    attachments: documents.map((document) => ({
-      content: getContent(document),
-      filename: document.fileName,
-      type: document.mimeType,
-      disposition: "attachment",
-    })),
+    subject: "Sending book...",
+    text: `A book "${fileNameWithExt}" documents have been attached!`,
+    attachments: [
+      {
+        content: readFileSync(filePath).toString("base64"),
+        filename: fileNameWithExt,
+        type: mimeType,
+        disposition: "attachment",
+      },
+    ],
   };
   try {
     await sgMail.send(message);
@@ -69,21 +49,7 @@ async function emailDocuments(documents: QueueItem[]) {
       )
     );
   }
-  documents.forEach((document) => unlinkSync(document.filePath));
-  await updateMessage(messages.documentDeleted);
-}
-
-export async function mailQueue() {
-  console.log("Mail queue runner started");
-  while (true) {
-    if (state.queued) {
-      await updateMessage(messages.workingThroughQueue);
-      await emailDocuments(state.queue);
-      await updateMessage(messages.emailedToDevice);
-    }
-    clearState();
-    await new Promise((resolve) => setTimeout(resolve, 10000));
-  }
+  unlinkSync(filePath);
 }
 
 async function downloadFile(
@@ -113,7 +79,7 @@ async function getFilePath(fileId: string): Promise<string> {
   return `https://api.telegram.org/file/bot${config.bot.token}/${localFilePath}`;
 }
 
-async function convertAndDownloadToMobi(
+async function convertToMobi(
   filePath: string,
   fileName: string
 ): Promise<string> {
@@ -138,40 +104,52 @@ async function convertAndDownloadToMobi(
   return targetPath;
 }
 
-async function updateMessage(message: string) {
+async function updateMessage(
+  message: string,
+  state?: State,
+  createState: boolean = false
+): Promise<State> {
+  state ??= {
+    messageId: undefined,
+    messages: [],
+  };
   state.messages.push(message);
   if (!state.messageId) {
-    state.messageId = (
-      await api.sendMessage(messages.documentReceived)
-    ).result.message_id;
+    state.messageId = (await api.sendMessage(message)).result.message_id;
   } else await api.editMessage(state.messages.join("\n"), state.messageId);
+  return state;
 }
 
 export default async function handler(document: any) {
-  state.queued = true;
-  await updateMessage(messages.documentReceived);
-  const fileUrl = await getFilePath(document.file_id);
+  let {
+    file_id: fileId,
+    file_unique_id: fileUniqueId,
+    file_name: fileName,
+    mime_type: mimeType,
+  } = document;
+  const state = await updateMessage(
+    messages.documentReceived(fileName),
+    undefined,
+    true
+  );
+  const fileUrl = await getFilePath(fileId);
   let downloadedFilePath = await downloadFile(
     fileUrl,
-    document.file_unique_id,
-    extensionMimeTypes[document.mime_type]
+    fileUniqueId,
+    extensionMimeTypes[mimeType]
   );
-  await updateMessage(messages.documentDownloaded);
-  if (extensionMimeTypes[document.mime_type] === "epub") {
-    await updateMessage(messages.mobiConversionStarted);
-    const newDownloadedFilePath = await convertAndDownloadToMobi(
+  await updateMessage(messages.documentDownloaded, state);
+  if (extensionMimeTypes[mimeType] === "epub") {
+    await updateMessage(messages.mobiConversionStarted, state);
+    const newDownloadedFilePath = await convertToMobi(
       downloadedFilePath,
-      document.file_unique_id
+      fileUniqueId
     );
     unlinkSync(downloadedFilePath);
-    await updateMessage(messages.mobiConversionDone);
+    await updateMessage(messages.mobiConversionDone, state);
     downloadedFilePath = newDownloadedFilePath;
-    document.mimeType = "application/x-mobipocket-ebook";
+    mimeType = "application/x-mobipocket-ebook";
   }
-  state.queue.push({
-    time: Date.now(),
-    fileName: document.file_name,
-    filePath: downloadedFilePath,
-    mimeType: document.mime_type,
-  });
+  await emailDocument(fileName, downloadedFilePath, mimeType);
+  await updateMessage(messages.emailedToDevice, state);
 }

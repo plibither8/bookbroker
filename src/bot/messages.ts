@@ -3,18 +3,20 @@ import config from "../../config.json";
 
 export const messages = {
   unauthorized: format.escape(
-    "You are unauthorized to interact with this bot."
+    "❗You are unauthorized to interact with this bot."
   ),
-  documentReceived: format.bold(format.escape("📗 Document received!")),
+  documentReceived: (fileName: string) =>
+    `${format.bold(format.escape(fileName))}\n${format.escape(
+      "📗 Document received!"
+    )}`,
   documentDownloaded: format.escape("📂 Document downloaded locally"),
-  documentDeleted: format.escape("🗑️ Documents deleted locally"),
   onlyFilesAccepted: format.escape("🙏 Please send a MOBI, EPUB or PDF file."),
   workingThroughQueue: format.escape("🔧 Working through the queue..."),
   emailedToDevice: format.bold(
     format.escape("🎉 Emailed to your device, enjoy!")
   ),
   errorInSendingMail: (err: string): string =>
-    format.escape(`❗ Error in sending message!\n\n${err}`),
+    format.escape(`❗Error in sending message!\n\n${err}`),
   mobiConversionStarted: format.escape("🔄 Converting EPUB file to MOBI..."),
   mobiConversionDone: format.escape("✅ Conversion done"),
   reinitialisedBot: (): string =>
