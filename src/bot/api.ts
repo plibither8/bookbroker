@@ -51,6 +51,8 @@ const api = {
       ...options,
     }),
   getFile: (fileId: string) => fetcher("POST", "getFile", { file_id: fileId }),
+  getFilePath: (localFilePath: string) =>
+    `https://api.telegram.org/file/bot${config.bot.token}/${localFilePath}`,
 };
 
 export default api;

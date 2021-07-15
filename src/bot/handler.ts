@@ -8,17 +8,18 @@ import {
 } from "fs";
 import path from "path";
 import api from "./api";
-import { extensionMimeTypes } from "./utils";
+import { extensionMimeTypes, getTempPath } from "./utils";
 import config from "../../config.json";
 import sgMail from "@sendgrid/mail";
 import messages from "./messages";
 import { spawnSync } from "child_process";
+import { EBOOK_CONVERT_BIN_PATH } from "../constants";
 
+// Initialise SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-const getTempPath = (fileName: string = ""): string =>
-  path.join(__dirname, "../../", "temp", fileName);
-
+// Create a temp directory if it already doesn't exist
+// Here we will store the downloaded/converted files for a while
 if (!existsSync(getTempPath())) {
   mkdirSync(getTempPath());
 }
@@ -28,36 +29,23 @@ interface State {
   messages: string[];
 }
 
-async function emailDocument(
-  fileName: string,
-  filePath: string,
-  mimeType: string
-) {
-  const fileNameWithExt = `${fileName}.${extensionMimeTypes[mimeType]}`;
-  const message = {
-    to: config.kindleEmail,
-    from: config.senderEmail,
-    subject: "Sending book...",
-    text: `A book "${fileNameWithExt}" documents have been attached!`,
-    attachments: [
-      {
-        content: readFileSync(filePath).toString("base64"),
-        filename: fileNameWithExt,
-        type: mimeType,
-        disposition: "attachment",
-      },
-    ],
-  };
-  try {
-    await sgMail.send(message);
-  } catch (err) {
-    await api.sendMessage(
-      messages.errorInSendingMail(
-        JSON.stringify(err.response.body.errors[0], null, 2)
-      )
-    );
-  }
-  unlinkSync(filePath);
+async function updateMessage(
+  message: string,
+  state?: State,
+  popLastMessage: boolean = false
+): Promise<State> {
+  state ??= { messageId: undefined, messages: [] };
+  if (popLastMessage) state.messages.pop();
+  state.messages.push(message);
+  if (!state.messageId)
+    state.messageId = (await api.sendMessage(message)).result.message_id;
+  else await api.editMessage(state.messages.join("\n"), state.messageId);
+  return state;
+}
+
+async function getFilePath(fileId: string): Promise<string> {
+  const file = await api.getFile(fileId);
+  return api.getFilePath(file.result.file_path);
 }
 
 async function downloadFile(
@@ -76,27 +64,39 @@ async function downloadFile(
   return targetPath;
 }
 
-async function getFilePath(fileId: string): Promise<string> {
-  const {
-    result: { file_path: localFilePath },
-  }: { result: Record<string, string> } = await api.getFile(fileId);
-  return `https://api.telegram.org/file/bot${config.bot.token}/${localFilePath}`;
-}
-
-async function updateMessage(
-  message: string,
-  state?: State,
-  createState: boolean = false
-): Promise<State> {
-  state ??= {
-    messageId: undefined,
-    messages: [],
+async function emailDocument(
+  fileName: string,
+  filePath: string,
+  mimeType: string
+): Promise<string | undefined> {
+  // Force-add the proper extension to the filename, otherwise
+  // Kindle rejects it
+  const fileNameWithExt = `${fileName}.${extensionMimeTypes[mimeType]}`;
+  const message = {
+    to: config.kindleEmail,
+    from: config.senderEmail,
+    subject: "Sending book...",
+    text: `A book "${fileNameWithExt}" documents have been attached!`,
+    attachments: [
+      {
+        content: readFileSync(filePath).toString("base64"),
+        filename: fileNameWithExt,
+        type: mimeType,
+        disposition: "attachment",
+      },
+    ],
   };
-  state.messages.push(message);
-  if (!state.messageId) {
-    state.messageId = (await api.sendMessage(message)).result.message_id;
-  } else await api.editMessage(state.messages.join("\n"), state.messageId);
-  return state;
+  let errorMessage = undefined;
+  try {
+    await sgMail.send(message);
+  } catch (err) {
+    errorMessage = err.response.body.errors
+      .map((error) => error.message)
+      .join("\n");
+  }
+  // Delete the file downloaded/converted file
+  unlinkSync(filePath);
+  return errorMessage;
 }
 
 export default async function handler(document: any) {
@@ -108,28 +108,41 @@ export default async function handler(document: any) {
   } = document;
   const state = await updateMessage(
     messages.documentReceived(fileName),
-    undefined,
-    true
+    undefined
   );
+  await updateMessage(messages.gettingFileInformation, state);
   const fileUrl = await getFilePath(fileId);
+  await updateMessage(messages.fileInformationReceived, state, true);
+  await updateMessage(messages.downloadingDocument, state);
   let downloadedFilePath = await downloadFile(
     fileUrl,
     fileUniqueId,
     extensionMimeTypes[mimeType]
   );
-  await updateMessage(messages.documentDownloaded, state);
+  await updateMessage(messages.documentDownloaded, state, true);
   if (extensionMimeTypes[mimeType] === "epub") {
     await updateMessage(messages.mobiConversionStarted, state);
     const newDownloadedFilePath = getTempPath(`${fileUniqueId}.mobi`);
-    spawnSync("/usr/bin/ebook-convert", [
+    spawnSync(EBOOK_CONVERT_BIN_PATH, [
       downloadedFilePath,
       newDownloadedFilePath,
     ]);
     unlinkSync(downloadedFilePath);
-    await updateMessage(messages.mobiConversionDone, state);
+    await updateMessage(messages.mobiConversionDone, state, true);
     downloadedFilePath = newDownloadedFilePath;
     mimeType = "application/x-mobipocket-ebook";
   }
-  await emailDocument(fileName, downloadedFilePath, mimeType);
-  await updateMessage(messages.emailedToDevice, state);
+  await updateMessage(messages.emailingToDevice, state);
+  const emailError = await emailDocument(
+    fileName,
+    downloadedFilePath,
+    mimeType
+  );
+  await updateMessage(
+    emailError
+      ? messages.errorInSendingMail(emailError)
+      : messages.emailedToDevice,
+    state,
+    true
+  );
 }

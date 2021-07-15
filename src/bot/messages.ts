@@ -3,22 +3,27 @@ import config from "../../config.json";
 
 export const messages = {
   unauthorized: format.escape(
-    "❗You are unauthorized to interact with this bot."
+    "❗ You are unauthorized to interact with this bot."
   ),
+  onlyFilesAccepted: format.escape("🙏 Please send a MOBI, EPUB or PDF file."),
   documentReceived: (fileName: string) =>
     `${format.bold(format.escape(fileName))}\n${format.escape(
       "📗 Document received!"
     )}`,
+  gettingFileInformation: format.escape("ℹ️ Getting file information..."),
+  fileInformationReceived: format.escape("ℹ️ Received file information"),
+  downloadingDocument: format.escape("📂 Downloading document..."),
   documentDownloaded: format.escape("📂 Document downloaded locally"),
-  onlyFilesAccepted: format.escape("🙏 Please send a MOBI, EPUB or PDF file."),
-  workingThroughQueue: format.escape("🔧 Working through the queue..."),
+  emailingToDevice: format.escape("📧 Emailing the book to your device..."),
   emailedToDevice: format.bold(
     format.escape("🎉 Emailed to your device, enjoy!")
   ),
   errorInSendingMail: (err: string): string =>
-    format.escape(`❗Error in sending message!\n\n${err}`),
+    `${format.bold(
+      format.escape("❗ Error in sending email!")
+    )}\n${format.escape(err)}`,
   mobiConversionStarted: format.escape("🔄 Converting EPUB file to MOBI..."),
-  mobiConversionDone: format.escape("✅ Conversion done"),
+  mobiConversionDone: format.escape("✅ Book converted from EPUB to MOBI"),
   reinitialisedBot: (): string =>
     format.escape(`♻️ Re-initialized bot with new domain: ${config.domain}`),
   unauthorizedAlert: (

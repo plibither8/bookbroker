@@ -1,3 +1,4 @@
+import path from "path";
 import api from "./api";
 import config from "../../config.json";
 import messages from "./messages";
@@ -28,6 +29,9 @@ export async function isAuthorized(from: any, text: string): Promise<boolean> {
   }
   return true;
 }
+
+export const getTempPath = (fileName: string = ""): string =>
+  path.join(__dirname, "../../", "temp", fileName);
 
 export const extensionMimeTypes: Record<string, string> = {
   "application/pdf": "pdf",
