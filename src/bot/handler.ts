@@ -99,8 +99,7 @@ async function emailDocument(
   return errorMessage;
 }
 
-async function main() {
-  const { document } = workerData;
+export default async function handler(document: any) {
   let { file_id: fileId, file_name: fileName, mime_type: mimeType } = document;
   const state = await updateMessage(
     messages.documentReceived(fileName),
@@ -142,4 +141,8 @@ async function main() {
   );
 }
 
-main();
+// If we are running a worker thread, then invoke
+// handler with workerData
+if (workerData) {
+  handler(workerData.document);
+}

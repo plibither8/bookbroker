@@ -8,6 +8,8 @@ import {
   isAuthorized,
   isDocument,
 } from "./utils";
+import handler from "./handler";
+import config from "../../config.json";
 
 async function initialiseBot(forceReinit = false) {
   const initisationStatus = await isBotInitialised();
@@ -27,14 +29,16 @@ initialiseBot();
 
 export default async function webhookHandler(req, res): Promise<void> {
   const { message } = req.body;
-  const handlerFile = path.join(__dirname, "handler.js");
   if (message) {
     const { from, text, document } = message;
     if ((await isAuthorized(from, text)) && (await isDocument(document))) {
-      const worker = new Worker(handlerFile, { workerData: { document } });
-      worker.on("exit", () => {
-        console.log(`Worker exited for message ${message.message_id}`);
-      });
+      if (config.useWorkerThreads) {
+        const handlerFile = path.join(__dirname, "handler.js");
+        const worker = new Worker(handlerFile, { workerData: { document } });
+        worker.on("exit", () => {
+          console.log(`Worker exited for message ${message.message_id}`);
+        });
+      } else handler(document);
     }
   }
   res.end();
