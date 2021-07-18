@@ -100,7 +100,7 @@ async function emailDocument(
   };
   let errorMessage = undefined;
   try {
-    // await sgMail.send(message);
+    await sgMail.send(message);
   } catch (err) {
     errorMessage = err.response.body.errors
       .map((error) => error.message)
