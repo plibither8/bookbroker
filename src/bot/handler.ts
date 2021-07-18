@@ -1,4 +1,5 @@
-import fetch from "node-fetch";
+import { workerData } from "worker_threads";
+import { spawnSync } from "child_process";
 import {
   createWriteStream,
   readFileSync,
@@ -6,13 +7,13 @@ import {
   existsSync,
   mkdirSync,
 } from "fs";
-import path from "path";
+import fetch from "node-fetch";
+import { v4 as uuidv4 } from "uuid";
 import api from "./api";
 import { extensionMimeTypes, getTempPath } from "./utils";
 import config from "../../config.json";
 import sgMail from "@sendgrid/mail";
 import messages from "./messages";
-import { spawnSync } from "child_process";
 import { EBOOK_CONVERT_BIN_PATH } from "../constants";
 
 // Initialise SendGrid
@@ -50,10 +51,9 @@ async function getFilePath(fileId: string): Promise<string> {
 
 async function downloadFile(
   fileUrl: string,
-  fileName: string,
   extension: string
 ): Promise<string> {
-  const targetPath = path.join(`${fileName}.${extension}`);
+  const targetPath = getTempPath(`${uuidv4()}.${extension}`);
   const response = await fetch(fileUrl);
   const fileStream = createWriteStream(targetPath);
   await new Promise((resolve, reject) => {
@@ -99,13 +99,9 @@ async function emailDocument(
   return errorMessage;
 }
 
-export default async function handler(document: any) {
-  let {
-    file_id: fileId,
-    file_unique_id: fileUniqueId,
-    file_name: fileName,
-    mime_type: mimeType,
-  } = document;
+async function main() {
+  const { document } = workerData;
+  let { file_id: fileId, file_name: fileName, mime_type: mimeType } = document;
   const state = await updateMessage(
     messages.documentReceived(fileName),
     undefined
@@ -116,13 +112,12 @@ export default async function handler(document: any) {
   await updateMessage(messages.downloadingDocument, state);
   let downloadedFilePath = await downloadFile(
     fileUrl,
-    fileUniqueId,
     extensionMimeTypes[mimeType]
   );
   await updateMessage(messages.documentDownloaded, state, true);
   if (extensionMimeTypes[mimeType] === "epub") {
     await updateMessage(messages.mobiConversionStarted, state);
-    const newDownloadedFilePath = getTempPath(`${fileUniqueId}.mobi`);
+    const newDownloadedFilePath = getTempPath(`${uuidv4()}.mobi`);
     spawnSync(EBOOK_CONVERT_BIN_PATH, [
       downloadedFilePath,
       newDownloadedFilePath,
@@ -146,3 +141,5 @@ export default async function handler(document: any) {
     true
   );
 }
+
+main();
