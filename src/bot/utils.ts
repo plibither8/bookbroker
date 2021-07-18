@@ -2,6 +2,8 @@ import path from "path";
 import api from "./api";
 import config from "../../config.json";
 import messages from "./messages";
+import { customAlphabet } from "nanoid";
+import * as emailValidator from "email-validator";
 
 export interface MessageEntity {
   offset: number;
@@ -39,9 +41,20 @@ export const extensionMimeTypes: Record<string, string> = {
   "application/x-mobipocket-ebook": "mobi",
 };
 
-export async function isDocument(document: any): Promise<boolean> {
+export async function isDocument(document: any, from: any): Promise<boolean> {
   const acceptedMimeTypes = Object.keys(extensionMimeTypes);
   if (acceptedMimeTypes.includes(document?.mime_type)) return true;
-  await api.sendMessage(messages.onlyFilesAccepted);
+  await api.sendMessage(messages.onlyFilesAccepted, from.id);
   return false;
 }
+
+export const createSenderEmail = (): string => {
+  const nanoid = customAlphabet("1234567890abcdef", 7);
+  const id = nanoid();
+  return `bot_${id}@books.mhr.cx`;
+};
+
+export const validateEmail = (text: string): string | undefined => {
+  if (text && emailValidator.validate(text) && text.endsWith("kindle.com"))
+    return text.trim();
+};

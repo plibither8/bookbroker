@@ -8,13 +8,15 @@ import {
   mkdirSync,
 } from "fs";
 import fetch from "node-fetch";
-import { v4 as uuidv4 } from "uuid";
+import { nanoid } from "nanoid";
 import api from "./api";
 import { extensionMimeTypes, getTempPath } from "./utils";
-import config from "../../config.json";
 import sgMail from "@sendgrid/mail";
 import messages from "./messages";
 import { EBOOK_CONVERT_BIN_PATH } from "../constants";
+import { PrismaClient, User } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 // Initialise SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -28,19 +30,28 @@ if (!existsSync(getTempPath())) {
 interface State {
   messageId: undefined | number;
   messages: string[];
+  chatId: string;
 }
 
 async function updateMessage(
   message: string,
   state?: State,
-  popLastMessage: boolean = false
+  popLastMessage: boolean = false,
+  chatId?: string
 ): Promise<State> {
-  state ??= { messageId: undefined, messages: [] };
+  state ??= { messageId: undefined, messages: [], chatId };
   if (popLastMessage) state.messages.pop();
   state.messages.push(message);
   if (!state.messageId)
-    state.messageId = (await api.sendMessage(message)).result.message_id;
-  else await api.editMessage(state.messages.join("\n"), state.messageId);
+    state.messageId = (
+      await api.sendMessage(message, state.chatId)
+    ).result.message_id;
+  else
+    await api.editMessage(
+      state.messages.join("\n"),
+      state.messageId,
+      state.chatId
+    );
   return state;
 }
 
@@ -53,7 +64,7 @@ async function downloadFile(
   fileUrl: string,
   extension: string
 ): Promise<string> {
-  const targetPath = getTempPath(`${uuidv4()}.${extension}`);
+  const targetPath = getTempPath(`${nanoid()}.${extension}`);
   const response = await fetch(fileUrl);
   const fileStream = createWriteStream(targetPath);
   await new Promise((resolve, reject) => {
@@ -65,6 +76,7 @@ async function downloadFile(
 }
 
 async function emailDocument(
+  user: User,
   fileName: string,
   filePath: string,
   mimeType: string
@@ -73,10 +85,10 @@ async function emailDocument(
   // Kindle rejects it
   const fileNameWithExt = `${fileName}.${extensionMimeTypes[mimeType]}`;
   const message = {
-    to: config.kindleEmail,
-    from: config.senderEmail,
+    to: user.kindleEmail,
+    from: user.senderEmail,
     subject: "Sending book...",
-    text: `A book "${fileNameWithExt}" documents have been attached!`,
+    text: `A document "${fileNameWithExt}" has been attached!`,
     attachments: [
       {
         content: readFileSync(filePath).toString("base64"),
@@ -88,7 +100,7 @@ async function emailDocument(
   };
   let errorMessage = undefined;
   try {
-    await sgMail.send(message);
+    // await sgMail.send(message);
   } catch (err) {
     errorMessage = err.response.body.errors
       .map((error) => error.message)
@@ -99,24 +111,37 @@ async function emailDocument(
   return errorMessage;
 }
 
-export default async function handler(document: any) {
+export default async function documentHandler(user: User, document: any) {
   let { file_id: fileId, file_name: fileName, mime_type: mimeType } = document;
   const state = await updateMessage(
     messages.documentReceived(fileName),
-    undefined
+    undefined,
+    false,
+    user.chatId
   );
+  const originalFileExtension = extensionMimeTypes[mimeType];
+
   await updateMessage(messages.gettingFileInformation, state);
   const fileUrl = await getFilePath(fileId);
   await updateMessage(messages.fileInformationReceived, state, true);
+
   await updateMessage(messages.downloadingDocument, state);
-  let downloadedFilePath = await downloadFile(
-    fileUrl,
-    extensionMimeTypes[mimeType]
-  );
+  let downloadedFilePath = await downloadFile(fileUrl, originalFileExtension);
   await updateMessage(messages.documentDownloaded, state, true);
-  if (extensionMimeTypes[mimeType] === "epub") {
+
+  const shouldConvert = originalFileExtension === "epub";
+  await prisma.transaction.create({
+    data: {
+      userId: user.id,
+      fileType: originalFileExtension,
+      fileId,
+      fileName,
+      converted: shouldConvert,
+    },
+  });
+  if (shouldConvert) {
     await updateMessage(messages.mobiConversionStarted, state);
-    const newDownloadedFilePath = getTempPath(`${uuidv4()}.mobi`);
+    const newDownloadedFilePath = getTempPath(`${nanoid()}.mobi`);
     spawnSync(EBOOK_CONVERT_BIN_PATH, [
       downloadedFilePath,
       newDownloadedFilePath,
@@ -126,8 +151,10 @@ export default async function handler(document: any) {
     downloadedFilePath = newDownloadedFilePath;
     mimeType = "application/x-mobipocket-ebook";
   }
+
   await updateMessage(messages.emailingToDevice, state);
   const emailError = await emailDocument(
+    user,
     fileName,
     downloadedFilePath,
     mimeType
@@ -144,5 +171,5 @@ export default async function handler(document: any) {
 // If we are running a worker thread, then invoke
 // handler with workerData
 if (workerData) {
-  handler(workerData.document);
+  documentHandler(workerData.user, workerData.document);
 }

@@ -30,7 +30,7 @@ const api = {
   setWebhook: (data: unknown) => fetcher("POST", "setWebhook", data),
   deleteWebhook: () => fetcher("POST", "deleteWebhook"),
   setCommands: (data: unknown) => fetcher("POST", "setMyCommands", data),
-  sendMessage: (text: string, chatId?: string | number, options: object = {}) =>
+  sendMessage: (text: string, chatId?: string | number, options: any = {}) =>
     fetcher("POST", "sendMessage", {
       text,
       chat_id: chatId || config.bot.chatId,
@@ -41,7 +41,7 @@ const api = {
     text: string,
     messageId: string | number,
     chatId?: string | number,
-    options: object = {}
+    options: any = {}
   ) =>
     fetcher("POST", "editMessageText", {
       text,

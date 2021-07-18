@@ -1,0 +1,35 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  Int             @id @default(autoincrement())
+  chatId              String          @unique
+  kindleEmail         String?
+  senderEmail         String          @unique
+  state               String          @default("FIRST_INTERACTION")
+  firstName           String
+  lastName            String?
+  username            String?
+  timezone            Decimal?
+  language            String
+  transactions        Transaction[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+model Transaction {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id])
+  time          DateTime    @default(now())
+  fileType      String
+  fileId        String
+  fileName      String
+  converted     Boolean     @default(false)
+}

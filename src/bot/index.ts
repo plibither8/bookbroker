@@ -1,15 +1,9 @@
-import path from "path";
-import { Worker } from "worker_threads";
 import api from "./api";
 import messages from "./messages";
-import {
-  createWebhookUrl,
-  isBotInitialised,
-  isAuthorized,
-  isDocument,
-} from "./utils";
-import handler from "./handler";
-import config from "../../config.json";
+import { createWebhookUrl, isBotInitialised } from "./utils";
+import { getOrCreateUser } from "./user";
+import { callbackAction } from "./callback";
+import { State, stateHandlers } from "./states";
 
 async function initialiseBot(forceReinit = false) {
   const initisationStatus = await isBotInitialised();
@@ -28,18 +22,24 @@ async function initialiseBot(forceReinit = false) {
 initialiseBot();
 
 export default async function webhookHandler(req, res): Promise<void> {
-  const { message } = req.body;
-  if (message) {
-    const { from, text, document } = message;
-    if ((await isAuthorized(from, text)) && (await isDocument(document))) {
-      if (config.useWorkerThreads) {
-        const handlerFile = path.join(__dirname, "handler.js");
-        const worker = new Worker(handlerFile, { workerData: { document } });
-        worker.on("exit", () => {
-          console.log(`Worker exited for message ${message.message_id}`);
-        });
-      } else handler(document);
-    }
+  const { message, callback_query } = req.body;
+
+  if (callback_query) {
+    callbackAction(callback_query);
+    return res.end();
   }
+
+  if (message) {
+    const { from, chat, text, document } = message;
+
+    if (chat.type !== "private") {
+      await api.sendMessage(messages.onlyPrivateChats, chat.id);
+      return res.end();
+    }
+
+    const user = await getOrCreateUser(from);
+    await stateHandlers[user.state as State](user, from, text, document);
+  }
+
   res.end();
 }
