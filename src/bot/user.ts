@@ -1,6 +1,8 @@
 import { PrismaClient, User } from "@prisma/client";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import api from "./api";
+import messages from "./messages";
 import { createSenderEmail } from "./utils";
 
 dayjs.extend(relativeTime);
@@ -8,11 +10,11 @@ dayjs.extend(relativeTime);
 const prisma = new PrismaClient();
 
 export async function getOrCreateUser(from: any): Promise<User> {
-  const user =
-    (await prisma.user.findFirst({
-      where: { chatId: from.id.toString() },
-    })) ||
-    (await prisma.user.create({
+  let user = await prisma.user.findFirst({
+    where: { chatId: from.id.toString() },
+  });
+  if (!user) {
+    user = await prisma.user.create({
       data: {
         chatId: from.id.toString(),
         firstName: from.first_name,
@@ -21,7 +23,9 @@ export async function getOrCreateUser(from: any): Promise<User> {
         language: from.language_code,
         senderEmail: createSenderEmail(),
       },
-    }));
+    });
+    await api.sendMessage(messages.newUser(user));
+  }
   return user;
 }
 
