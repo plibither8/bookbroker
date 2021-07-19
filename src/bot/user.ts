@@ -20,7 +20,7 @@ export async function getOrCreateUser(from: any): Promise<User> {
         firstName: from.first_name,
         lastName: from.last_name,
         username: from.username,
-        language: from.language_code,
+        language: from.language_code || "en",
         senderEmail: createSenderEmail(),
       },
     });

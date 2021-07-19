@@ -17,7 +17,7 @@ model User {
   lastName                String?
   username                String?
   timezone                Decimal?
-  language                String
+  language                String?         @default("en")
   deliveries              Delivery[]
   payments                Payment[]
   dailyDeliveryLimit      Int             @default(5)
