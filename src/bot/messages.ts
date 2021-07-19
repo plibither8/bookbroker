@@ -121,10 +121,16 @@ Add the following email to your "Approved Personal Document E-mail List". Check 
   )}${format.escape(". It's the one that ends with")} ${format.monospace(
     "kindle.com"
   )}`,
-  botReady: format.escape(
-    `✅ Perfecto, we're all set! Just send me the document (upload, forward, drag-n-drop), and I'll send it to your Kindle 😉\n
+  botReady: `${format.escape(
+    `✅ Perfecto, we're all set! Just send me the document (upload, forward, drag-n-drop), and I'll send it to your Kindle 😉\n`
+  )}
+${format.bold(
+  format.escape("Your daily delivery limit is 5 books.")
+)} ${format.escape(
+    `You can /donate to increase it by 10 and support the development of this bot :)\n
 Psst. If I ever misbehave, please contact @plibither8 :)`
-  ),
+  )}
+  `,
   deliveryLimitReached: async (user: User) => {
     const { dailyDeliveryLimit, limitResetTime } = await getUsageInfo(user);
     return `${format.bold(
