@@ -59,7 +59,7 @@ Choose and amount (in USD or INR) from below ⬇️`
   },
   newUser: (user: User) =>
     `${format.bold(format.escape(`✨ New user joined!`))}
-${format.escape(`Name: ${user.firstName} ${user.lastName || ""}\n
+${format.escape(`Name: ${user.firstName} ${user.lastName || ""}
 Username: ${user.username || "unknown"}
 Chat ID: ${user.chatId}`)}`,
   invalidDefaultCommand: (isCommand: boolean) => {
