@@ -31,7 +31,8 @@ export async function callbackAction(callbackQuery: any) {
     if (user) {
       const payment = await createPaymentLink(user, amount, currency);
       await api.sendMessage(
-        messages.donateLink(amount, currency, payment.link)
+        messages.donateLink(amount, currency, payment.link),
+        from.id
       );
     }
     return;
