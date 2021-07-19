@@ -56,8 +56,9 @@ async function updateMessage(
   return state;
 }
 
-async function getFilePath(fileId: string): Promise<string> {
+async function getFilePath(fileId: string): Promise<string | boolean> {
   const file = await api.getFile(fileId);
+  if (file.result.file_size > 20 * 1024 * 1024) return false;
   return api.getFilePath(file.result.file_path);
 }
 
@@ -143,10 +144,17 @@ export default async function documentHandler(user: User, document: any) {
 
   await updateMessage(messages.gettingFileInformation, state);
   const fileUrl = await getFilePath(fileId);
+  if (!fileUrl) {
+    await updateMessage(messages.fileSizeLimit, state, true);
+    return;
+  }
   await updateMessage(messages.fileInformationReceived, state, true);
 
   await updateMessage(messages.downloadingDocument, state);
-  let downloadedFilePath = await downloadFile(fileUrl, originalFileExtension);
+  let downloadedFilePath = await downloadFile(
+    fileUrl as string,
+    originalFileExtension
+  );
   await updateMessage(messages.documentDownloaded, state, true);
   if (shouldConvert) {
     await updateMessage(messages.mobiConversionStarted, state);

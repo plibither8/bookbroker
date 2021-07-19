@@ -187,6 +187,9 @@ ${format.escape(
     )}\n${format.escape(err)}`,
   mobiConversionStarted: format.escape("🔄 Converting EPUB file to MOBI..."),
   mobiConversionDone: format.escape("✅ Book converted from EPUB to MOBI"),
+  fileSizeLimit: format.escape(
+    "⚠️ File size limit is 20MB, please upload files under 20MB. Aborting..."
+  ),
   reinitialisedBot: (): string =>
     format.escape(`♻️ Re-initialized bot with new domain: ${config.domain}`),
   unauthorized: format.escape(
