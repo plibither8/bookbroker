@@ -4,6 +4,7 @@ import config from "../../config.json";
 import messages from "./messages";
 import { customAlphabet } from "nanoid";
 import * as emailValidator from "email-validator";
+import { commandAliases } from "./commands";
 
 export interface MessageEntity {
   offset: number;
@@ -51,10 +52,22 @@ export async function isDocument(document: any, from: any): Promise<boolean> {
 export const createSenderEmail = (): string => {
   const nanoid = customAlphabet("1234567890abcdef", 7);
   const id = nanoid();
-  return `bot_${id}@books.mhr.cx`;
+  return `bot_${id}@bookbroker.mhr.cx`;
 };
 
 export const validateEmail = (text: string): string | undefined => {
   if (text && emailValidator.validate(text) && text.endsWith("kindle.com"))
     return text.trim();
 };
+
+export function getCommandFromText(
+  text: string,
+  entities: MessageEntity[] = []
+): string | undefined {
+  const [entity] = entities;
+  const command =
+    entity && entity.type === "bot_command"
+      ? text.substr(entity.offset + 1, entity.length - 1)
+      : undefined;
+  return commandAliases[command] || command;
+}

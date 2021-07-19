@@ -15,6 +15,7 @@ import sgMail from "@sendgrid/mail";
 import messages from "./messages";
 import { EBOOK_CONVERT_BIN_PATH } from "../constants";
 import { PrismaClient, User } from "@prisma/client";
+import { getUsageInfo } from "./user";
 
 const prisma = new PrismaClient();
 
@@ -100,7 +101,7 @@ async function emailDocument(
   };
   let errorMessage = undefined;
   try {
-    await sgMail.send(message);
+    if (!process.env.DEV) await sgMail.send(message);
   } catch (err) {
     errorMessage = err.response.body.errors
       .map((error) => error.message)
@@ -113,24 +114,9 @@ async function emailDocument(
 
 export default async function documentHandler(user: User, document: any) {
   let { file_id: fileId, file_name: fileName, mime_type: mimeType } = document;
-  const state = await updateMessage(
-    messages.documentReceived(fileName),
-    undefined,
-    false,
-    user.chatId
-  );
   const originalFileExtension = extensionMimeTypes[mimeType];
-
-  await updateMessage(messages.gettingFileInformation, state);
-  const fileUrl = await getFilePath(fileId);
-  await updateMessage(messages.fileInformationReceived, state, true);
-
-  await updateMessage(messages.downloadingDocument, state);
-  let downloadedFilePath = await downloadFile(fileUrl, originalFileExtension);
-  await updateMessage(messages.documentDownloaded, state, true);
-
   const shouldConvert = originalFileExtension === "epub";
-  await prisma.transaction.create({
+  await prisma.delivery.create({
     data: {
       userId: user.id,
       fileType: originalFileExtension,
@@ -139,6 +125,29 @@ export default async function documentHandler(user: User, document: any) {
       converted: shouldConvert,
     },
   });
+  const { deliveriesToday, dailyDeliveryLimit } = await getUsageInfo(user);
+  if (deliveriesToday > dailyDeliveryLimit) {
+    await api.sendMessage(
+      await messages.deliveryLimitReached(user),
+      user.chatId
+    );
+    return;
+  }
+
+  const state = await updateMessage(
+    messages.documentReceived(fileName),
+    undefined,
+    false,
+    user.chatId
+  );
+
+  await updateMessage(messages.gettingFileInformation, state);
+  const fileUrl = await getFilePath(fileId);
+  await updateMessage(messages.fileInformationReceived, state, true);
+
+  await updateMessage(messages.downloadingDocument, state);
+  let downloadedFilePath = await downloadFile(fileUrl, originalFileExtension);
+  await updateMessage(messages.documentDownloaded, state, true);
   if (shouldConvert) {
     await updateMessage(messages.mobiConversionStarted, state);
     const newDownloadedFilePath = getTempPath(`${nanoid()}.mobi`);
@@ -162,7 +171,7 @@ export default async function documentHandler(user: User, document: any) {
   await updateMessage(
     emailError
       ? messages.errorInSendingMail(emailError)
-      : messages.emailedToDevice,
+      : await messages.emailedToDevice(user),
     state,
     true
   );
