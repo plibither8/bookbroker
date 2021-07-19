@@ -25,10 +25,6 @@ export const defaultCommands: BotCommand[] = [
     description:
       "💸 Donate a small amount to increase your delivery limit and support me",
   },
-  {
-    command: "cancel",
-    description: "❎ Cancel the ongoing command",
-  },
 ];
 
 export const commands: BotCommand[] = [

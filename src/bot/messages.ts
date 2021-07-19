@@ -7,7 +7,9 @@ import { getUsageInfo } from "./user";
 export const messages = {
   commands: {
     help: () => [
-      `${format.underline(
+      `${format.escape(
+        "🚀 Just send me the document or book (upload, forward, drag-n-drop), and I'll send it to your Kindle 😉"
+      )}\n\n${format.underline(
         "ℹ️ List of available commands:"
       )}\n\n${defaultCommands
         .map(({ command, description }) =>
@@ -53,9 +55,6 @@ Choose and amount (in USD or INR) from below ⬇️`
           ],
         },
       },
-    ],
-    cancel: () => [
-      format.escape("✔️ Ongoing operation cancelled. Off to a fresh start!"),
     ],
   },
   invalidDefaultCommand: (isCommand: boolean) => {
