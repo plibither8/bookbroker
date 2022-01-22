@@ -1,12 +1,15 @@
 import api from "./api.js";
 import { callbackAction } from "./callback.js";
 import { defaultCommands } from "./commands.js";
+import domain from "./domain.js";
 import messages from "./messages.js";
 import { State, stateHandlers } from "./states.js";
 import { getOrCreateUser } from "./user.js";
 import { createWebhookUrl, isBotInitialised } from "./utils.js";
 
 async function initialiseBot(forceReinit = false) {
+  await domain.prepare();
+
   const initisationStatus = await isBotInitialised();
   if (initisationStatus && !forceReinit) return;
 

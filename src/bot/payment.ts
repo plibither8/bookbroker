@@ -1,9 +1,9 @@
 import type { Payment, User } from "@prisma/client";
 import { createHmac } from "crypto";
 import got from "got";
-import config from "../../config.js";
 import db from "../libs/database.js";
 import api from "./api.js";
+import domain from "./domain.js";
 import messages from "./messages.js";
 
 const RAZORPAY_API_BASE = "https://api.razorpay.com/v1/";
@@ -35,7 +35,7 @@ export async function createPaymentLink(
           sms: false,
           email: false,
         },
-        callback_url: `${config.domain}/donate`,
+        callback_url: `${domain.domain}/donate`,
         callback_method: "get",
       },
     })

@@ -99,7 +99,7 @@ async function emailDocument(
   };
   let errorMessage = undefined;
   try {
-    if (!process.env.DEV) await sgMail.send(message);
+    if (process.env.ENVIRONMENT !== "dev") await sgMail.send(message);
   } catch (err) {
     errorMessage = err.response.body.errors
       .map((error) => error.message)

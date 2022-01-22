@@ -1,10 +1,9 @@
 export default {
   domain: "https://example.com",
-  kindleEmail: "your_kindle@kindle.com",
-  senderEmail: "some_unguessable_email@example.com",
+  useWorkerThreads: false,
   bot: {
     webhookPath: "/~telegram",
-    token: "telegram_bot_token",
+    token: process.env.TG_BOT_API_TOKEN,
     chatId: "telegram_chat_id",
   },
 };

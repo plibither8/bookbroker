@@ -1,7 +1,7 @@
 import type { User } from "@prisma/client";
 import { markdownv2 as format } from "telegram-format";
-import config from "../../config.js";
 import { defaultCommands } from "./commands.js";
+import domain from "./domain.js";
 import { getUsageInfo } from "./user.js";
 
 export const messages = {
@@ -201,7 +201,7 @@ ${format.escape(
     "⚠️ File size limit is 20MB, please upload files under 20MB. Aborting..."
   ),
   reinitialisedBot: (): string =>
-    format.escape(`♻️ Re-initialized bot with new domain: ${config.domain}`),
+    format.escape(`♻️ Re-initialized bot with new domain: ${domain.domain}`),
   unauthorized: format.escape(
     "❗ You are unauthorized to interact with this bot."
   ),

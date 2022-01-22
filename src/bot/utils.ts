@@ -4,6 +4,7 @@ import path from "path";
 import config from "../../config.js";
 import api from "./api.js";
 import { commandAliases } from "./commands.js";
+import domain from "./domain.js";
 import messages from "./messages.js";
 
 export interface MessageEntity {
@@ -13,7 +14,7 @@ export interface MessageEntity {
 }
 
 export function createWebhookUrl(): string {
-  return `${config.domain}${config.bot.webhookPath}/${config.bot.token}`;
+  return `${domain.domain}${config.bot.webhookPath}/${config.bot.token}`;
 }
 
 export async function isBotInitialised(): Promise<boolean> {
