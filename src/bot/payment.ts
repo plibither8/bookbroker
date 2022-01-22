@@ -1,11 +1,10 @@
-import { Payment, PrismaClient, User } from "@prisma/client";
-import fetch from "node-fetch";
-import config from "../../config.json";
-import api from "./api";
-import messages from "./messages";
+import type { Payment, User } from "@prisma/client";
 import { createHmac } from "crypto";
-
-const prisma = new PrismaClient();
+import got from "got";
+import config from "../../config.js";
+import db from "../libs/database.js";
+import api from "./api.js";
+import messages from "./messages.js";
 
 const RAZORPAY_API_BASE = "https://api.razorpay.com/v1/";
 const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
@@ -15,41 +14,33 @@ export async function createPaymentLink(
   amount: number,
   currency: string
 ): Promise<Payment> {
-  const paymentCount = await prisma.payment.count({
+  const paymentCount = await db.payment.count({
     where: { userId: user.id },
   });
-  const response = await fetch(`${RAZORPAY_API_BASE}payment_links`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization:
-        "Basic " +
-        Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString(
-          "base64"
-        ),
-    },
-    body: JSON.stringify({
-      amount: amount * 100,
-      currency,
-      accept_partial: false,
-      reference_id: `chat_${user.chatId}_${paymentCount + 1}`,
-      description:
-        "Payment to increase daily delivery limit for the BookBroker bot",
-      customer: {
-        name: `${user.firstName} ${user.lastName || ""}`.trim(),
+  const { short_url, id } = (await got
+    .post(`${RAZORPAY_API_BASE}payment_links`, {
+      username: RAZORPAY_KEY_ID,
+      password: RAZORPAY_KEY_SECRET,
+      json: {
+        amount: amount * 100,
+        currency,
+        accept_partial: false,
+        reference_id: `chat_${user.chatId}_${paymentCount + 1}`,
+        description:
+          "Payment to increase daily delivery limit for the BookBroker bot",
+        customer: {
+          name: `${user.firstName} ${user.lastName || ""}`.trim(),
+        },
+        notify: {
+          sms: false,
+          email: false,
+        },
+        callback_url: `${config.domain}/donate`,
+        callback_method: "get",
       },
-      notify: {
-        sms: false,
-        email: false,
-      },
-      callback_url: `${config.domain}/donate`,
-      callback_method: "get",
-    }),
-  });
-  const razorpayPaymentLink = await response.json();
-  const { short_url, id }: { short_url: string; id: string } =
-    razorpayPaymentLink;
-  return await prisma.payment.create({
+    })
+    .json()) as { short_url: string; id: string };
+  return await db.payment.create({
     data: {
       amount,
       currency,
@@ -81,7 +72,7 @@ export async function donateCallbackHandler(req: any, res: any) {
       .update(queries.join("|"))
       .digest("hex") === razorpay_signature;
   if (!isValidRequest) return res.end("Signature mismatch!");
-  const payment = await prisma.payment.findFirst({
+  const payment = await db.payment.findFirst({
     where: {
       paymentLinkId: razorpay_payment_link_id,
       status: { not: "paid" },
@@ -89,11 +80,11 @@ export async function donateCallbackHandler(req: any, res: any) {
     include: { user: true },
   });
   if (payment) {
-    await prisma.payment.update({
+    await db.payment.update({
       where: { id: payment.id },
       data: { status: "paid" },
     });
-    const user = await prisma.user.update({
+    const user = await db.user.update({
       where: { id: payment.user.id },
       data: { dailyDeliveryLimit: payment.user.dailyDeliveryLimit + 10 },
     });

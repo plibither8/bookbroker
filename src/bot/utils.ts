@@ -1,10 +1,10 @@
-import path from "path";
-import api from "./api";
-import config from "../../config.json";
-import messages from "./messages";
-import { customAlphabet } from "nanoid";
 import * as emailValidator from "email-validator";
-import { commandAliases } from "./commands";
+import { customAlphabet } from "nanoid";
+import path from "path";
+import config from "../../config.js";
+import api from "./api.js";
+import { commandAliases } from "./commands.js";
+import messages from "./messages.js";
 
 export interface MessageEntity {
   offset: number;
@@ -34,7 +34,7 @@ export async function isAuthorized(from: any, text: string): Promise<boolean> {
 }
 
 export const getTempPath = (fileName: string = ""): string =>
-  path.join(__dirname, "../../", "temp", fileName);
+  path.resolve("../../", "temp", fileName);
 
 export const extensionMimeTypes: Record<string, string> = {
   "application/pdf": "pdf",

@@ -1,12 +1,12 @@
-import "dotenv/config";
+import bodyParser from "body-parser";
+import "dotenv/config.js";
 import polka from "polka";
-import telegram from "./bot";
-import config from "../config.json";
-import { json } from "body-parser";
-import { donateCallbackHandler } from "./bot/payment";
+import config from "../config.js";
+import telegram from "./bot/index.js";
+import { donateCallbackHandler } from "./bot/payment.js";
 
 polka()
-  .use(json())
+  .use(bodyParser.json())
   .post(`${config.bot.webhookPath}/${config.bot.token}`, telegram)
   .get("donate", donateCallbackHandler)
   .listen(process.env.PORT, () =>

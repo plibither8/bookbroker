@@ -1,6 +1,6 @@
-import fetch from "node-fetch";
+import got from "got";
 import { Form } from "multiparty";
-import { SEND_TO_KINDLE, VERIFICATION_FAILURE_LINE } from "./constants";
+import { SEND_TO_KINDLE, VERIFICATION_FAILURE_LINE } from "./constants.js";
 
 async function getMailFields(req: any): Promise<Record<string, string>> {
   const form = new Form();
@@ -38,8 +38,7 @@ export async function verifyDocument(req: any): Promise<boolean> {
     return false;
   }
   const verificationUrl = await parseUrlFromFields(mailFields);
-  const response = await fetch(verificationUrl);
-  const html = (await response.text()) as string;
+  const html = await got(verificationUrl).text();
   console.log("Fetched verification URL");
   return !html.includes(VERIFICATION_FAILURE_LINE);
 }

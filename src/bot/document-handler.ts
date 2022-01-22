@@ -1,23 +1,30 @@
-import { workerData } from "worker_threads";
+import type { User } from "@prisma/client";
+import sgMail from "@sendgrid/mail";
 import { spawnSync } from "child_process";
 import {
   createWriteStream,
-  readFileSync,
-  unlinkSync,
   existsSync,
   mkdirSync,
+  readFileSync,
+  unlinkSync,
 } from "fs";
-import fetch from "node-fetch";
+import got from "got";
 import { nanoid } from "nanoid";
-import api from "./api";
-import { extensionMimeTypes, getTempPath } from "./utils";
-import sgMail from "@sendgrid/mail";
-import messages from "./messages";
-import { EBOOK_CONVERT_BIN_PATH } from "../constants";
-import { PrismaClient, User } from "@prisma/client";
-import { getUsageInfo } from "./user";
+import stream from "stream";
+import { promisify } from "util";
+import { workerData } from "worker_threads";
+import { EBOOK_CONVERT_BIN_PATH } from "../libs/constants.js";
+import db from "../libs/database.js";
+import api from "./api.js";
+import messages from "./messages.js";
+import { getUsageInfo } from "./user.js";
+import { extensionMimeTypes, getTempPath } from "./utils.js";
 
-const prisma = new PrismaClient();
+interface State {
+  messageId: undefined | number;
+  messages: string[];
+  chatId: string;
+}
 
 // Initialise SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -26,12 +33,6 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 // Here we will store the downloaded/converted files for a while
 if (!existsSync(getTempPath())) {
   mkdirSync(getTempPath());
-}
-
-interface State {
-  messageId: undefined | number;
-  messages: string[];
-  chatId: string;
 }
 
 async function updateMessage(
@@ -62,18 +63,14 @@ async function getFilePath(fileId: string): Promise<string | boolean> {
   return api.getFilePath(file.result.file_path);
 }
 
+const pipeline = promisify(stream.pipeline);
+
 async function downloadFile(
   fileUrl: string,
   extension: string
 ): Promise<string> {
   const targetPath = getTempPath(`${nanoid()}.${extension}`);
-  const response = await fetch(fileUrl);
-  const fileStream = createWriteStream(targetPath);
-  await new Promise((resolve, reject) => {
-    response.body.pipe(fileStream);
-    response.body.on("error", reject);
-    fileStream.on("finish", resolve);
-  });
+  await pipeline(got.stream(fileUrl), createWriteStream(targetPath));
   return targetPath;
 }
 
@@ -117,7 +114,7 @@ export default async function documentHandler(user: User, document: any) {
   let { file_id: fileId, file_name: fileName, mime_type: mimeType } = document;
   const originalFileExtension = extensionMimeTypes[mimeType];
   const shouldConvert = originalFileExtension === "epub";
-  await prisma.delivery.create({
+  await db.delivery.create({
     data: {
       userId: user.id,
       fileType: originalFileExtension,

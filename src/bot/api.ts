@@ -1,5 +1,5 @@
-import fetch, { RequestInit } from "node-fetch";
-import config from "../../config.json";
+import got from "got";
+import config from "../../config.js";
 
 interface TgJsonResponse<T = any> {
   ok: boolean;
@@ -8,21 +8,17 @@ interface TgJsonResponse<T = any> {
 type ApiResponse<T> = Promise<TgJsonResponse<T>>;
 type RequestMethod = "GET" | "POST" | "DELETE";
 
-function fetcher<T = any>(
+const TG_API_BASE = `https://api.telegram.org/bot${config.bot.token}`;
+
+const fetcher = <T = any>(
   method: RequestMethod,
   endpoint: string,
   data: unknown = undefined
-): ApiResponse<T> {
-  const TG_API_BASE = `https://api.telegram.org/bot${config.bot.token}`;
-  const requestOptions: RequestInit = { method };
-  if (data) {
-    requestOptions.body = JSON.stringify(data);
-    requestOptions.headers = { "Content-Type": "application/json" };
-  }
-  return fetch(`${TG_API_BASE}/${endpoint}`, requestOptions).then((res) =>
-    res.json()
-  );
-}
+): ApiResponse<T> =>
+  got(`${TG_API_BASE}/${endpoint}`, {
+    method,
+    json: data,
+  }).json();
 
 const api = {
   getMe: () => fetcher("GET", "getMe"),

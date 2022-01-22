@@ -1,8 +1,8 @@
+import type { User } from "@prisma/client";
 import { markdownv2 as format } from "telegram-format";
-import { User } from "@prisma/client";
-import config from "../../config.json";
-import { defaultCommands } from "./commands";
-import { getUsageInfo } from "./user";
+import config from "../../config.js";
+import { defaultCommands } from "./commands.js";
+import { getUsageInfo } from "./user.js";
 
 export const messages = {
   commands: {
@@ -35,7 +35,7 @@ ${format.bold(format.escape("💸 /donate"))}`;
     donate: () => [
       format.escape(
         `💸 Thanks for considering a donation! You can increase your daily delivery limit by 10 and support the development of this bot :).\n
-Choose and amount (in USD or INR) from below ⬇️`
+Choose an amount (in USD or INR) from below ⬇️`
       ),
       {
         reply_markup: {
@@ -55,6 +55,16 @@ Choose and amount (in USD or INR) from below ⬇️`
           ],
         },
       },
+    ],
+    cancel: () => [
+      format.escape("🛑 Ongoing command cancelled! Back to square one ;)"),
+    ],
+    edit_email: () => [
+      `${format.escape("📨 Send me")} ${format.bold(
+        format.escape("your Send-To-Kindle email")
+      )}${format.escape(". It's the one that ends with")} ${format.monospace(
+        "kindle.com"
+      )}${format.escape(". /cancel to cancel this action!")}`,
     ],
   },
   newUser: (user: User) =>
@@ -116,15 +126,15 @@ Add the following email to your "Approved Personal Document E-mail List". Check 
       },
     },
   ],
-  invalidSenderEmail: `${format.escape(
-    "😞 This seems to be an invalid Send-To-Kindle email ID. Make sure it ends with"
-  )} ${format.monospace("kindle.com")}`,
-  onlyFilesAccepted: format.escape("🙏 Please send a MOBI, EPUB or PDF file."),
   requestKindleEmail: `${format.escape("📨 Now send me")} ${format.bold(
     format.escape("your Send-To-Kindle email")
   )}${format.escape(". It's the one that ends with")} ${format.monospace(
     "kindle.com"
   )}`,
+  invalidKindleEmail: `${format.escape(
+    "😞 This seems to be an invalid Send-To-Kindle email ID. Make sure it ends with"
+  )} ${format.monospace("kindle.com")}`,
+  onlyFilesAccepted: format.escape("🙏 Please send a MOBI, EPUB or PDF file."),
   botReady: `${format.escape(
     `✅ Perfecto, we're all set! Just send me the document (upload, forward, drag-n-drop), and I'll send it to your Kindle 😉\n`
   )}

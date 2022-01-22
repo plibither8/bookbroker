@@ -1,10 +1,10 @@
-import api from "./api";
-import { defaultCommands } from "./commands";
-import messages from "./messages";
-import { createWebhookUrl, isBotInitialised } from "./utils";
-import { getOrCreateUser } from "./user";
-import { callbackAction } from "./callback";
-import { State, stateHandlers } from "./states";
+import api from "./api.js";
+import { callbackAction } from "./callback.js";
+import { defaultCommands } from "./commands.js";
+import messages from "./messages.js";
+import { State, stateHandlers } from "./states.js";
+import { getOrCreateUser } from "./user.js";
+import { createWebhookUrl, isBotInitialised } from "./utils.js";
 
 async function initialiseBot(forceReinit = false) {
   const initisationStatus = await isBotInitialised();
@@ -37,7 +37,7 @@ export default async function webhookHandler(req, res): Promise<void> {
       return res.end();
     }
     const user = await getOrCreateUser(message.from);
-    await stateHandlers[user.state as State](user, message);
+    stateHandlers[user.state as State](user, message);
   }
 
   res.end();

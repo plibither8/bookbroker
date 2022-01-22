@@ -1,20 +1,19 @@
-import { PrismaClient, User } from "@prisma/client";
+import type { User } from "@prisma/client";
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
-import api from "./api";
-import messages from "./messages";
-import { createSenderEmail } from "./utils";
+import relativeTime from "dayjs/plugin/relativeTime.js";
+import db from "../libs/database.js";
+import api from "./api.js";
+import messages from "./messages.js";
+import { createSenderEmail } from "./utils.js";
 
 dayjs.extend(relativeTime);
 
-const prisma = new PrismaClient();
-
 export async function getOrCreateUser(from: any): Promise<User> {
-  let user = await prisma.user.findFirst({
+  let user = await db.user.findFirst({
     where: { chatId: from.id.toString() },
   });
   if (!user) {
-    user = await prisma.user.create({
+    user = await db.user.create({
       data: {
         chatId: from.id.toString(),
         firstName: from.first_name,
@@ -36,7 +35,7 @@ export async function getUsageInfo(user: User): Promise<{
 }> {
   const { dailyDeliveryLimit } = user;
   const endOfDay = dayjs().endOf("day").toDate();
-  const deliveriesToday = await prisma.delivery.count({
+  const deliveriesToday = await db.delivery.count({
     where: {
       userId: user.id,
       time: {

@@ -1,6 +1,6 @@
 # Custom
 .vscode
-config.json
+config.ts
 temp/
 prisma/*
 !prisma/schema.prisma

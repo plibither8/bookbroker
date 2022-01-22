@@ -25,6 +25,10 @@ export const defaultCommands: BotCommand[] = [
     description:
       "💸 Donate a small amount to increase your delivery limit and support me",
   },
+  {
+    command: "edit_email",
+    description: "📧 Edit your Send-To-Kindle email",
+  },
 ];
 
 export const commands: BotCommand[] = [
