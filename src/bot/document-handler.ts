@@ -113,7 +113,7 @@ async function emailDocument(
 export default async function documentHandler(user: User, document: any) {
   let { file_id: fileId, file_name: fileName, mime_type: mimeType } = document;
   const originalFileExtension = extensionMimeTypes[mimeType];
-  const shouldConvert = originalFileExtension === "epub";
+  const shouldConvert = false;
   await db.delivery.create({
     data: {
       userId: user.id,
